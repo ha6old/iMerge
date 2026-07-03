@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -91,7 +92,8 @@ fun GalleryScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .background(PhotoWall),
+                        // Darker than the toolbar in both themes.
+                        .background(if (isSystemInDarkTheme()) PhotoWallDark else PhotoWall),
                 )
             }
         }
@@ -126,7 +128,7 @@ private fun PhotoGrid(
         selected.withIndex().associate { (index, photo) -> photo.key to index }
     }
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 104.dp),
+        columns = GridCells.Fixed(3),
         modifier = modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp),
         contentPadding = PaddingValues(bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),

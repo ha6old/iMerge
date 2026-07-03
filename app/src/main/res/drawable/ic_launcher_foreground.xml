@@ -4,13 +4,17 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Two white photo frames side by side: merging photos -->
     <path
-        android:fillColor="#242421"
-        android:pathData="M26,28C26,23.6 29.6,20 34,20H74C78.4,20 82,23.6 82,28V49H74V30C74,28.9 73.1,28 72,28H36C34.9,28 34,28.9 34,30V49H26V28Z" />
-    <path
-        android:fillColor="#242421"
-        android:pathData="M26,59H34V78C34,79.1 34.9,80 36,80H72C73.1,80 74,79.1 74,78V59H82V80C82,84.4 78.4,88 74,88H34C29.6,88 26,84.4 26,80V59Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M29,36 L47,36 A4,4 0 0 1 51,40 L51,68 A4,4 0 0 1 47,72 L29,72 A4,4 0 0 1 25,68 L25,40 A4,4 0 0 1 29,36 Z" />
     <path
         android:fillColor="#E97B47"
-        android:pathData="M18,50H90V58H18Z" />
+        android:pathData="M30,39 L46,39 A2,2 0 0 1 48,41 L48,61 A2,2 0 0 1 46,63 L30,63 A2,2 0 0 1 28,61 L28,41 A2,2 0 0 1 30,39 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M61,36 L79,36 A4,4 0 0 1 83,40 L83,68 A4,4 0 0 1 79,72 L61,72 A4,4 0 0 1 57,68 L57,40 A4,4 0 0 1 61,36 Z" />
+    <path
+        android:fillColor="#242421"
+        android:pathData="M62,39 L78,39 A2,2 0 0 1 80,41 L80,61 A2,2 0 0 1 78,63 L62,63 A2,2 0 0 1 60,61 L60,41 A2,2 0 0 1 62,39 Z" />
 </vector>
