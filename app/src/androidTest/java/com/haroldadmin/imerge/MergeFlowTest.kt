@@ -1,10 +1,12 @@
 package com.haroldadmin.imerge
 
+import android.Manifest
 import android.content.ContentUris
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -15,6 +17,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import androidx.test.rule.GrantPermissionRule
+import com.haroldadmin.imerge.gallery.GalleryPhoto
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -24,7 +28,14 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 class MergeFlowTest {
-    @get:Rule
+    @get:Rule(order = 0)
+    val permissionRule: GrantPermissionRule = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        GrantPermissionRule.grant(Manifest.permission.READ_MEDIA_IMAGES)
+    } else {
+        GrantPermissionRule.grant(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+
+    @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
@@ -33,40 +44,58 @@ class MergeFlowTest {
         val first = createJpeg(context, "merge-test-first.jpg", 1200, 800, Color.rgb(231, 111, 81))
         val second = createJpeg(context, "merge-test-second.jpg", 600, 1200, Color.rgb(42, 157, 143))
         val createdOutputs = mutableListOf<Uri>()
+        val saveLabel = string(R.string.save_to_gallery)
+        val successTitle = string(R.string.merge_success_title)
+        val keepLabel = string(R.string.keep_originals)
 
         try {
             val initialId = latestMergedImage(context)?.id ?: -1L
-            composeRule.activityRule.scenario.onActivity { activity ->
-                ViewModelProvider(activity)[MergeViewModel::class.java]
-                    .addPhotos(listOf(Uri.fromFile(first), Uri.fromFile(second)))
-            }
+            selectAndOpenMerge(first, second)
 
             composeRule.waitUntil(10_000) {
-                composeRule.onAllNodesWithText("2 张照片").fetchSemanticsNodes().isNotEmpty()
+                composeRule.onAllNodesWithText(saveLabel).fetchSemanticsNodes().isNotEmpty()
             }
-            composeRule.onNodeWithText("保存到相册").assertIsDisplayed().performClick()
+            composeRule.onNodeWithText(saveLabel).assertIsDisplayed().performClick()
             composeRule.waitUntil(20_000) {
-                composeRule.onAllNodesWithText("拼接成功").fetchSemanticsNodes().isNotEmpty()
+                composeRule.onAllNodesWithText(successTitle).fetchSemanticsNodes().isNotEmpty()
             }
             val vertical = waitForNewImage(context, initialId)
             createdOutputs += vertical.uri
             assertEquals(1200, vertical.width)
             assertEquals(3200, vertical.height)
 
-            composeRule.onNodeWithText("保留原图").performClick()
-            composeRule.onNodeWithText("横向").performClick()
-            composeRule.onNodeWithText("保存到相册").performClick()
+            composeRule.onNodeWithText(keepLabel).performClick()
+
+            selectAndOpenMerge(first, second)
+            composeRule.waitUntil(10_000) {
+                composeRule.onAllNodesWithText(saveLabel).fetchSemanticsNodes().isNotEmpty()
+            }
+            composeRule.onNodeWithText(string(R.string.direction_horizontal)).performClick()
+            composeRule.onNodeWithText(saveLabel).performClick()
             composeRule.waitUntil(20_000) {
-                composeRule.onAllNodesWithText("拼接成功").fetchSemanticsNodes().isNotEmpty()
+                composeRule.onAllNodesWithText(successTitle).fetchSemanticsNodes().isNotEmpty()
             }
             val horizontal = waitForNewImage(context, vertical.id)
             createdOutputs += horizontal.uri
             assertEquals(2400, horizontal.width)
             assertEquals(1200, horizontal.height)
+            composeRule.onNodeWithText(keepLabel).performClick()
         } finally {
             createdOutputs.forEach { context.contentResolver.delete(it, null, null) }
             first.delete()
             second.delete()
+        }
+    }
+
+    private fun string(id: Int, vararg args: Any): String =
+        composeRule.activity.getString(id, *args)
+
+    private fun selectAndOpenMerge(first: File, second: File) {
+        composeRule.activityRule.scenario.onActivity { activity ->
+            val viewModel = ViewModelProvider(activity)[MergeViewModel::class.java]
+            viewModel.toggleSelection(GalleryPhoto(Uri.fromFile(first), 1200, 800))
+            viewModel.toggleSelection(GalleryPhoto(Uri.fromFile(second), 600, 1200))
+            viewModel.openMerge()
         }
     }
 

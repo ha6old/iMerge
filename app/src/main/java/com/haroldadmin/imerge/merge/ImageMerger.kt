@@ -3,6 +3,7 @@ package com.haroldadmin.imerge.merge
 import android.content.ContentResolver
 import android.content.ContentValues
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ImageDecoder
@@ -11,6 +12,8 @@ import android.graphics.Rect
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.core.graphics.createBitmap
+import androidx.exifinterface.media.ExifInterface
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -20,11 +23,11 @@ import kotlin.coroutines.coroutineContext
 class ImageMerger(private val resolver: ContentResolver) {
 
     suspend fun merge(uris: List<Uri>, direction: MergeDirection): Bitmap = withContext(Dispatchers.IO) {
-        require(uris.size >= 2) { "请至少选择两张照片" }
+        require(uris.isNotEmpty()) { "请至少选择一张照片" }
         val sizes = uris.map { readSize(it) }
         val layout = MergeLayoutPlanner.plan(sizes, direction)
         val output = try {
-            Bitmap.createBitmap(layout.width, layout.height, Bitmap.Config.ARGB_8888)
+            createBitmap(layout.width, layout.height)
         } catch (error: OutOfMemoryError) {
             throw IOException("照片尺寸过大，无法分配导出内存", error)
         }
@@ -88,15 +91,32 @@ class ImageMerger(private val resolver: ContentResolver) {
     }
 
     private fun readSize(uri: Uri): ImageSize {
-        var decodedSize: ImageSize? = null
-        val bitmap = ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
-            decodedSize = ImageSize(info.size.width, info.size.height)
-            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            decoder.setTargetSize(1, 1)
-        }
-        bitmap.recycle()
-        return decodedSize ?: throw IOException("无法读取照片尺寸")
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, options)
+        } ?: throw IOException("无法读取照片: $uri")
+        val w = options.outWidth
+        val h = options.outHeight
+        if (w <= 0 || h <= 0) throw IOException("无法读取照片尺寸: $uri")
+        // BitmapFactory reports pre-rotation bounds, while decode() goes through
+        // ImageDecoder which applies EXIF orientation; swap so both agree.
+        return if (isExifRotated(uri)) ImageSize(h, w) else ImageSize(w, h)
     }
+
+    private fun isExifRotated(uri: Uri): Boolean = runCatching {
+        resolver.openInputStream(uri)?.use { stream ->
+            when (ExifInterface(stream).getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL,
+            )) {
+                ExifInterface.ORIENTATION_ROTATE_90,
+                ExifInterface.ORIENTATION_ROTATE_270,
+                ExifInterface.ORIENTATION_TRANSPOSE,
+                ExifInterface.ORIENTATION_TRANSVERSE -> true
+                else -> false
+            }
+        } ?: false
+    }.getOrDefault(false)
 
     private fun decode(uri: Uri, width: Int, height: Int): Bitmap =
         ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, _, _ ->

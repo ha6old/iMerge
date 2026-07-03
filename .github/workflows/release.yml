@@ -37,8 +37,13 @@ jobs:
 
       - name: Define release version
         run: |
-          echo "IMERGE_VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
-          echo "IMERGE_VERSION_NAME=1.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          # Include the run attempt so re-running a workflow yields a fresh, monotonic version.
+          echo "IMERGE_VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER * 10 + GITHUB_RUN_ATTEMPT))" >> "$GITHUB_ENV"
+          VERSION_NAME="1.0.${GITHUB_RUN_NUMBER}"
+          if [ "${GITHUB_RUN_ATTEMPT}" -gt 1 ]; then
+            VERSION_NAME="${VERSION_NAME}.${GITHUB_RUN_ATTEMPT}"
+          fi
+          echo "IMERGE_VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
           echo "IMERGE_KEYSTORE_PATH=$RUNNER_TEMP/imerge-release.jks" >> "$GITHUB_ENV"
           echo "IMERGE_KEY_ALIAS=imerge" >> "$GITHUB_ENV"
 
@@ -65,7 +70,9 @@ jobs:
             > update.json
 
       - name: Verify APK signature
-        run: "$ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose iMerge.apk"
+        run: |
+          APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner"
+          "$APKSIGNER" verify --verbose iMerge.apk
 
       - name: Publish GitHub Release
         env:

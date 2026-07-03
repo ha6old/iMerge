@@ -1,3 +1,53 @@
 <resources>
     <string name="app_name">iMerge</string>
+
+    <!-- Gallery screen -->
+    <string name="gallery_permission_title">允许访问照片</string>
+    <string name="gallery_permission_body">iMerge 需要读取相册，才能在这里展示并拼接你的照片</string>
+    <string name="gallery_permission_grant">允许访问</string>
+    <string name="gallery_permission_settings">前往系统设置</string>
+    <string name="gallery_partial_notice">目前仅可访问部分照片</string>
+    <string name="gallery_partial_manage">调整</string>
+    <string name="gallery_empty">相册中还没有照片</string>
+    <string name="gallery_photo">照片</string>
+    <string name="gallery_selected_position">已选第 %1$d 张</string>
+    <string name="selection_limit_reached">最多只能选择 %1$d 张照片</string>
+    <string name="merge_button_count">Merge · %1$d</string>
+
+    <!-- Merge screen -->
+    <string name="back">返回</string>
+    <string name="direction_vertical">纵向</string>
+    <string name="direction_horizontal">横向</string>
+    <string name="save_to_gallery">保存到相册</string>
+    <string name="merging">正在合并</string>
+    <string name="add_more_photos">继续添加照片</string>
+    <string name="remove_photo">移除第 %1$d 张照片</string>
+    <string name="reorder_hint">第 %1$d 张照片，长按拖动排序</string>
+    <string name="export_failed">导出失败，请重试</string>
+
+    <!-- Merge success dialog -->
+    <string name="merge_success_title">拼接成功</string>
+    <string name="merge_success_body">已保存到手机本地相册</string>
+    <string name="merge_success_path">Pictures/iMerge/%1$s</string>
+    <string name="merge_success_delete_prompt">是否删除拼接前的 %1$d 张原图？</string>
+    <string name="delete_originals">删除原图</string>
+    <string name="keep_originals">保留原图</string>
+
+    <!-- Deletion results -->
+    <string name="originals_kept">拼接图已保存，原图已保留</string>
+    <string name="delete_cancelled">已取消删除，原图仍保留在相册中</string>
+    <string name="deleted_all">已删除 %1$d 张原图，拼接图已保留</string>
+    <string name="deleted_partial">已删除 %1$d 张原图，其余来源不支持删除并已保留</string>
+    <string name="deleted_none">原图未删除，仍保留在相册中</string>
+    <string name="delete_unsupported">这些原图来自云端或不支持删除，已为你保留</string>
+    <string name="delete_request_failed">无法请求删除原图，原图已保留</string>
+    <string name="delete_not_allowed">部分原图不允许删除，已为你保留</string>
+
+    <!-- App update -->
+    <string name="update_found_title">发现新版本 %1$s</string>
+    <string name="update_download">后台下载</string>
+    <string name="update_later">以后再说</string>
+    <string name="update_scheduled">新版本将在 Wi-Fi 环境自动下载</string>
+    <string name="update_need_permission">需要允许 iMerge 安装更新</string>
+    <string name="update_notification_description">正在后台下载新版本</string>
 </resources>

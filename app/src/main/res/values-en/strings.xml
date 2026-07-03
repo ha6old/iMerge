@@ -1,0 +1,53 @@
+<resources>
+    <string name="app_name">iMerge</string>
+
+    <!-- Gallery screen -->
+    <string name="gallery_permission_title">Allow photo access</string>
+    <string name="gallery_permission_body">iMerge needs to read your gallery to show and stitch your photos here</string>
+    <string name="gallery_permission_grant">Allow access</string>
+    <string name="gallery_permission_settings">Open system settings</string>
+    <string name="gallery_partial_notice">Only some photos are accessible</string>
+    <string name="gallery_partial_manage">Manage</string>
+    <string name="gallery_empty">No photos in your gallery yet</string>
+    <string name="gallery_photo">Photo</string>
+    <string name="gallery_selected_position">Selected as number %1$d</string>
+    <string name="selection_limit_reached">You can select up to %1$d photos</string>
+    <string name="merge_button_count">Merge · %1$d</string>
+
+    <!-- Merge screen -->
+    <string name="back">Back</string>
+    <string name="direction_vertical">Vertical</string>
+    <string name="direction_horizontal">Horizontal</string>
+    <string name="save_to_gallery">Save to gallery</string>
+    <string name="merging">Merging</string>
+    <string name="add_more_photos">Add more photos</string>
+    <string name="remove_photo">Remove photo %1$d</string>
+    <string name="reorder_hint">Photo %1$d, long-press and drag to reorder</string>
+    <string name="export_failed">Export failed, please try again</string>
+
+    <!-- Merge success dialog -->
+    <string name="merge_success_title">Merge complete</string>
+    <string name="merge_success_body">Saved to your local gallery</string>
+    <string name="merge_success_path">Pictures/iMerge/%1$s</string>
+    <string name="merge_success_delete_prompt">Delete the %1$d original photos?</string>
+    <string name="delete_originals">Delete originals</string>
+    <string name="keep_originals">Keep originals</string>
+
+    <!-- Deletion results -->
+    <string name="originals_kept">Merged image saved, originals kept</string>
+    <string name="delete_cancelled">Deletion cancelled, originals remain in your gallery</string>
+    <string name="deleted_all">Deleted %1$d originals, merged image kept</string>
+    <string name="deleted_partial">Deleted %1$d originals; the rest could not be deleted and were kept</string>
+    <string name="deleted_none">Originals were not deleted and remain in your gallery</string>
+    <string name="delete_unsupported">These originals are cloud-backed or cannot be deleted, so they were kept</string>
+    <string name="delete_request_failed">Could not request deletion, originals were kept</string>
+    <string name="delete_not_allowed">Some originals cannot be deleted and were kept</string>
+
+    <!-- App update -->
+    <string name="update_found_title">New version %1$s available</string>
+    <string name="update_download">Download in background</string>
+    <string name="update_later">Later</string>
+    <string name="update_scheduled">The update will download automatically on Wi-Fi</string>
+    <string name="update_need_permission">iMerge needs permission to install updates</string>
+    <string name="update_notification_description">Downloading the new version in the background</string>
+</resources>

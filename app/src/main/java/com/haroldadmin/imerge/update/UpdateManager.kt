@@ -3,10 +3,12 @@ package com.haroldadmin.imerge.update
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Environment
 import androidx.core.content.FileProvider
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import com.haroldadmin.imerge.BuildConfig
+import com.haroldadmin.imerge.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -73,11 +75,12 @@ class UpdateManager(private val context: Context) {
 
         val fileName = "iMerge-${info.versionCode}.apk"
         updateFile(fileName).delete()
-        val request = DownloadManager.Request(Uri.parse(info.apkUrl))
+        val request = DownloadManager.Request(info.apkUrl.toUri())
             .setTitle("iMerge ${info.versionName}")
-            .setDescription("正在后台下载新版本")
+            .setDescription(context.getString(R.string.update_notification_description))
             .setMimeType(APK_MIME)
-            .setAllowedOverMetered(true)
+            // The user only consents to a background download, so never spend mobile data on it.
+            .setAllowedOverMetered(false)
             .setAllowedOverRoaming(false)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
             .setDestinationInExternalFilesDir(
@@ -86,15 +89,22 @@ class UpdateManager(private val context: Context) {
                 "updates/$fileName",
             )
         val id = downloadManager.enqueue(request)
-        preferences.edit()
-            .putLong(KEY_DOWNLOAD_ID, id)
-            .putInt(KEY_VERSION_CODE, info.versionCode)
-            .putString(KEY_VERSION_NAME, info.versionName)
-            .putString(KEY_FILE_NAME, fileName)
-            .putString(KEY_SHA_256, info.sha256)
-            .apply()
+        preferences.edit {
+            putLong(KEY_DOWNLOAD_ID, id)
+            putInt(KEY_VERSION_CODE, info.versionCode)
+            putString(KEY_VERSION_NAME, info.versionName)
+            putString(KEY_FILE_NAME, fileName)
+            putString(KEY_SHA_256, info.sha256)
+        }
         return DownloadEnqueueResult(id, startedNew = true)
     }
+
+    fun skipVersion(versionCode: Int) {
+        preferences.edit { putInt(KEY_SKIPPED_VERSION, versionCode) }
+    }
+
+    fun isSkipped(versionCode: Int): Boolean =
+        preferences.getInt(KEY_SKIPPED_VERSION, -1) == versionCode
 
     fun isPendingDownload(id: Long): Boolean = preferences.getLong(KEY_DOWNLOAD_ID, -1L) == id
 
@@ -144,7 +154,13 @@ class UpdateManager(private val context: Context) {
     private fun clearDownloadedUpdate(id: Long) {
         preferences.getString(KEY_FILE_NAME, null)?.let(::updateFile)?.delete()
         if (id >= 0) downloadManager.remove(id)
-        preferences.edit().clear().apply()
+        preferences.edit {
+            remove(KEY_DOWNLOAD_ID)
+            remove(KEY_VERSION_CODE)
+            remove(KEY_VERSION_NAME)
+            remove(KEY_FILE_NAME)
+            remove(KEY_SHA_256)
+        }
     }
 
     private fun updateFile(name: String): File =
@@ -170,6 +186,7 @@ class UpdateManager(private val context: Context) {
         private const val KEY_VERSION_NAME = "version_name"
         private const val KEY_FILE_NAME = "file_name"
         private const val KEY_SHA_256 = "sha_256"
+        private const val KEY_SKIPPED_VERSION = "skipped_version"
         private const val APK_MIME = "application/vnd.android.package-archive"
         private val SHA_256_REGEX = Regex("^[0-9a-f]{64}$")
     }
