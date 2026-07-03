@@ -166,6 +166,7 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
                         }
                     }
                 },
+                expandedHeight = 56.dp,
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
@@ -178,7 +179,8 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(scaffoldPadding)
-                .padding(horizontal = if (state.screen == Screen.Gallery) 15.dp else 20.dp),
+                // The gallery draws its own full-bleed photo wall; only the merge page is inset here.
+                .padding(horizontal = if (state.screen == Screen.Gallery) 0.dp else 20.dp),
         ) {
             when (state.screen) {
                 Screen.Gallery -> GalleryScreen(

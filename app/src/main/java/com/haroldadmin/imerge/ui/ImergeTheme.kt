@@ -17,6 +17,7 @@ val Paper = Color(0xFFFFFEFA)
 val Accent = Color(0xFFE97B47)
 val Muted = Color(0xFF73716B)
 val Hairline = Color(0xFFE2DFD7)
+val PhotoWall = Color(0xFF33322E)
 
 private val LightColors = lightColorScheme(
     primary = Ink,

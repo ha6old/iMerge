@@ -11,6 +11,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -77,16 +78,20 @@ fun GalleryScreen(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            else -> Column(Modifier.weight(1f).padding(top = 15.dp)) {
+            else -> Column(Modifier.weight(1f)) {
                 if (access == PhotoAccess.Partial) {
-                    PartialAccessBanner(onRequestAccess)
+                    Spacer(Modifier.height(8.dp))
+                    PartialAccessBanner(onRequestAccess, Modifier.padding(horizontal = 10.dp))
                     Spacer(Modifier.height(8.dp))
                 }
                 PhotoGrid(
                     photos = photos,
                     selected = selected,
                     onToggle = onToggle,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(PhotoWall),
                 )
             }
         }
@@ -99,6 +104,7 @@ fun GalleryScreen(
                 onClick = onMerge,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
                     .padding(top = 14.dp)
                     .height(52.dp),
                 shape = RoundedCornerShape(18.dp),
@@ -121,7 +127,8 @@ private fun PhotoGrid(
     }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 104.dp),
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp),
+        contentPadding = PaddingValues(bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -151,7 +158,7 @@ private fun GalleryCell(
         Modifier
             .aspectRatio(1f)
             .clip(shape)
-            .background(Hairline.copy(alpha = .35f))
+            .background(Color.White.copy(alpha = .08f))
             .then(
                 if (selectionIndex != null) Modifier.border(2.dp, Accent, shape) else Modifier,
             )
@@ -183,11 +190,11 @@ private fun GalleryCell(
 }
 
 @Composable
-private fun PartialAccessBanner(onRequestAccess: () -> Unit) {
+private fun PartialAccessBanner(onRequestAccess: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = Accent.copy(alpha = .1f),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -214,7 +221,7 @@ private fun PermissionState(
     Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(bottom = 48.dp),
+            modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 48.dp),
         ) {
             Surface(
                 onClick = onRequestAccess,
