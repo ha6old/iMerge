@@ -26,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -38,10 +39,15 @@ import com.haroldadmin.imerge.R
 import kotlinx.coroutines.launch
 import java.io.File
 
+/**
+ * Runs the automatic update check and returns a trigger for manual checks
+ * (which download immediately, even on metered networks).
+ */
 @Composable
-fun AutoUpdateEffect(onMessage: (String) -> Unit) {
-    if (BuildConfig.DEBUG) return
+fun AutoUpdateEffect(onMessage: (String) -> Unit): () -> Unit {
+    if (BuildConfig.DEBUG) return {}
     val context = LocalContext.current
+    val resources = LocalResources.current
     val activity = context as Activity
     val lifecycleOwner = LocalLifecycleOwner.current
     val manager = remember { UpdateManager(context.applicationContext) }
@@ -131,6 +137,28 @@ fun AutoUpdateEffect(onMessage: (String) -> Unit) {
         if (isResumed) manager.completedApk()?.let(requestInstall)
     }
 
+    val manualCheck: () -> Unit = {
+        scope.launch {
+            onMessage(resources.getString(R.string.update_checking))
+            val readyApk = manager.completedApk()
+            if (readyApk != null) {
+                requestInstall(readyApk)
+            } else {
+                runCatching { manager.checkForUpdate() }
+                    .onFailure { onMessage(resources.getString(R.string.update_check_failed)) }
+                    .onSuccess { update ->
+                        if (update == null) {
+                            onMessage(resources.getString(R.string.update_latest))
+                        } else {
+                            pendingUpdate = null
+                            manager.enqueue(update, allowMetered = true)
+                            onMessage(resources.getString(R.string.update_downloading, update.versionName))
+                        }
+                    }
+            }
+        }
+    }
+
     pendingUpdate?.let { update ->
         val scheduledMessage = stringResource(R.string.update_scheduled)
         AlertDialog(
@@ -166,4 +194,6 @@ fun AutoUpdateEffect(onMessage: (String) -> Unit) {
             },
         )
     }
+
+    return manualCheck
 }

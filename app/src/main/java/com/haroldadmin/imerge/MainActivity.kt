@@ -19,6 +19,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,6 +59,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -100,7 +103,7 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
     val resources = LocalResources.current
     val snackbarHost = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    AutoUpdateEffect { message ->
+    val checkUpdates = AutoUpdateEffect { message ->
         scope.launch { snackbarHost.showSnackbar(message) }
     }
 
@@ -150,12 +153,19 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
         viewModel.closeMerge()
     }
 
+    val appBarScroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    LaunchedEffect(state.screen) {
+        appBarScroll.state.heightOffset = 0f
+    }
+
     Scaffold(
+        modifier = Modifier.nestedScroll(appBarScroll.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             CenterAlignedTopAppBar(
-                title = { BrandTitle() },
+                title = { BrandTitle(onClick = checkUpdates) },
+                scrollBehavior = appBarScroll,
                 navigationIcon = {
                     if (state.screen == Screen.Merge) {
                         IconButton(onClick = viewModel::closeMerge) {
@@ -169,6 +179,7 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
                 expandedHeight = 56.dp,
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                     navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
                 ),
@@ -230,8 +241,14 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
 }
 
 @Composable
-private fun BrandTitle() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun BrandTitle(onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClickLabel = stringResource(R.string.update_check_label), onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+    ) {
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
         Box(
             Modifier

@@ -65,7 +65,7 @@ class UpdateManager(private val context: Context) {
         }
     }
 
-    fun enqueue(info: UpdateInfo): DownloadEnqueueResult {
+    fun enqueue(info: UpdateInfo, allowMetered: Boolean = false): DownloadEnqueueResult {
         val existingId = preferences.getLong(KEY_DOWNLOAD_ID, -1L)
         val existingVersion = preferences.getInt(KEY_VERSION_CODE, -1)
         if (existingId >= 0 && existingVersion == info.versionCode && isActiveOrComplete(existingId)) {
@@ -79,8 +79,8 @@ class UpdateManager(private val context: Context) {
             .setTitle("iMerge ${info.versionName}")
             .setDescription(context.getString(R.string.update_notification_description))
             .setMimeType(APK_MIME)
-            // The user only consents to a background download, so never spend mobile data on it.
-            .setAllowedOverMetered(false)
+            // Auto-updates stay on Wi-Fi; explicit manual checks may use mobile data.
+            .setAllowedOverMetered(allowMetered)
             .setAllowedOverRoaming(false)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
             .setDestinationInExternalFilesDir(

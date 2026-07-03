@@ -44,6 +44,11 @@
     <string name="delete_not_allowed">Some originals cannot be deleted and were kept</string>
 
     <!-- App update -->
+    <string name="update_check_label">Check for updates</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_latest">You are on the latest version</string>
+    <string name="update_check_failed">Update check failed, please try again later</string>
+    <string name="update_downloading">Downloading new version %1$s</string>
     <string name="update_found_title">New version %1$s available</string>
     <string name="update_download">Download in background</string>
     <string name="update_later">Later</string>
