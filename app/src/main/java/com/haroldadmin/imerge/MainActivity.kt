@@ -178,7 +178,7 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(scaffoldPadding)
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = if (state.screen == Screen.Gallery) 15.dp else 20.dp),
         ) {
             when (state.screen) {
                 Screen.Gallery -> GalleryScreen(

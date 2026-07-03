@@ -77,7 +77,7 @@ fun GalleryScreen(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            else -> Column(Modifier.weight(1f)) {
+            else -> Column(Modifier.weight(1f).padding(top = 15.dp)) {
                 if (access == PhotoAccess.Partial) {
                     PartialAccessBanner(onRequestAccess)
                     Spacer(Modifier.height(8.dp))
