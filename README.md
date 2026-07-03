@@ -35,6 +35,13 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 ./gradlew testDebugUnitTest lintDebug
 ```
 
+连接 Android 设备后，可运行完整的两图纵向/横向导出回归测试：
+
+```bash
+./gradlew connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.haroldadmin.imerge.MergeFlowTest
+```
+
 ## 自动发布与更新
 
 每次推送到 `main` 后，[GitHub Actions](.github/workflows/release.yml) 会自动运行测试、签名打包，并发布 `iMerge.apk` 与 `update.json`。更新协议和签名要求见 [`docs/UPDATE_PROTOCOL.md`](docs/UPDATE_PROTOCOL.md)。

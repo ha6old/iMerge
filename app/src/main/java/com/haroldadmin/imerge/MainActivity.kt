@@ -622,8 +622,9 @@ private fun rememberUriBitmap(uri: Uri): Bitmap? {
             }.getOrNull()
         }
     }
-    DisposableEffect(bitmap) {
-        onDispose { bitmap?.recycle() }
+    val ownedBitmap = bitmap
+    DisposableEffect(ownedBitmap) {
+        onDispose { ownedBitmap?.recycle() }
     }
     return bitmap
 }
