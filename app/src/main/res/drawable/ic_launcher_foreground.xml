@@ -4,17 +4,11 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Two white photo frames side by side: merging photos -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M29,36 L47,36 A4,4 0 0 1 51,40 L51,68 A4,4 0 0 1 47,72 L29,72 A4,4 0 0 1 25,68 L25,40 A4,4 0 0 1 29,36 Z" />
+    <!-- Two photo frames side by side, vertically centered: merging photos -->
     <path
         android:fillColor="#E97B47"
-        android:pathData="M30,39 L46,39 A2,2 0 0 1 48,41 L48,61 A2,2 0 0 1 46,63 L30,63 A2,2 0 0 1 28,61 L28,41 A2,2 0 0 1 30,39 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M61,36 L79,36 A4,4 0 0 1 83,40 L83,68 A4,4 0 0 1 79,72 L61,72 A4,4 0 0 1 57,68 L57,40 A4,4 0 0 1 61,36 Z" />
+        android:pathData="M32,37 L46,37 A5,5 0 0 1 51,42 L51,66 A5,5 0 0 1 46,71 L32,71 A5,5 0 0 1 27,66 L27,42 A5,5 0 0 1 32,37 Z" />
     <path
         android:fillColor="#242421"
-        android:pathData="M62,39 L78,39 A2,2 0 0 1 80,41 L80,61 A2,2 0 0 1 78,63 L62,63 A2,2 0 0 1 60,61 L60,41 A2,2 0 0 1 62,39 Z" />
+        android:pathData="M62,37 L76,37 A5,5 0 0 1 81,42 L81,66 A5,5 0 0 1 76,71 L62,71 A5,5 0 0 1 57,66 L57,42 A5,5 0 0 1 62,37 Z" />
 </vector>
