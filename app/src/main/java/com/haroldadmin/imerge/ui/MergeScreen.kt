@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -39,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -120,25 +124,75 @@ private fun StitchedPreview(
             MergeDirection.Vertical -> (1.0 / ratios.sumOf { 1.0 / it }).toFloat()
             MergeDirection.Horizontal -> ratios.sum()
         }
+        // Double-tap / pinch to zoom in and inspect detail; resets when the selection changes.
+        var scale by remember(photos, direction) { mutableFloatStateOf(1f) }
+        var offset by remember(photos, direction) { mutableStateOf(Offset.Zero) }
+        val density = LocalDensity.current
+
         BoxWithConstraints(
-            Modifier.fillMaxSize().padding(12.dp),
+            Modifier.fillMaxSize().padding(12.dp).clipToBounds(),
             contentAlignment = Alignment.Center,
         ) {
-            val boxRatio = maxWidth.value / maxHeight.value
+            val boxWpx = with(density) { maxWidth.toPx() }
+            val boxHpx = with(density) { maxHeight.toPx() }
+            val boxRatio = boxWpx / boxHpx
             // Contain: fit by the tighter axis so no photo is clipped or scrolled off.
-            val fit = if (combinedRatio >= boxRatio) {
+            val (elemW, elemH) = if (combinedRatio >= boxRatio) {
+                boxWpx to boxWpx / combinedRatio
+            } else {
+                boxHpx * combinedRatio to boxHpx
+            }
+            fun clampOffset(target: Offset, s: Float): Offset {
+                val maxX = (elemW * s - elemW).coerceAtLeast(0f) / 2f
+                val maxY = (elemH * s - elemH).coerceAtLeast(0f) / 2f
+                return Offset(target.x.coerceIn(-maxX, maxX), target.y.coerceIn(-maxY, maxY))
+            }
+            val fit = (if (combinedRatio >= boxRatio) {
                 Modifier.fillMaxWidth().aspectRatio(combinedRatio)
             } else {
                 Modifier.fillMaxHeight().aspectRatio(combinedRatio)
-            }.clip(RoundedCornerShape(6.dp))
+            })
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = offset.x
+                    translationY = offset.y
+                }
+                .pointerInput(elemW, elemH) {
+                    detectTapGestures(
+                        onDoubleTap = { tap ->
+                            if (scale > 1f) {
+                                scale = 1f
+                                offset = Offset.Zero
+                            } else {
+                                val target = 2.5f
+                                val center = Offset(elemW / 2f, elemH / 2f)
+                                scale = target
+                                offset = clampOffset((center - tap) * target, target)
+                            }
+                        },
+                    )
+                }
+                .pointerInput(elemW, elemH) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        val next = (scale * zoom).coerceIn(1f, 5f)
+                        scale = next
+                        offset = if (next == 1f) Offset.Zero else clampOffset(offset + pan, next)
+                    }
+                }
+                .clip(RoundedCornerShape(6.dp))
+
+            val seam = Color.White.copy(alpha = 0.5f)
             when (direction) {
                 MergeDirection.Vertical -> Column(fit) {
                     photos.forEachIndexed { index, photo ->
+                        if (index > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(seam))
                         PreviewSegment(photo, Modifier.fillMaxWidth().weight(1f / ratios[index]))
                     }
                 }
                 MergeDirection.Horizontal -> Row(fit) {
                     photos.forEachIndexed { index, photo ->
+                        if (index > 0) Box(Modifier.fillMaxHeight().width(1.dp).background(seam))
                         PreviewSegment(photo, Modifier.fillMaxHeight().weight(ratios[index]))
                     }
                 }
