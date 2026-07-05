@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,11 +19,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -115,19 +113,34 @@ private fun StitchedPreview(
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
-        Box(Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
+        // width / height of each photo, clamped so one extreme image can't collapse the strip.
+        val ratios = photos.map { it.aspectRatio.coerceIn(0.05f, 20f) }
+        // Aspect ratio of the fully stitched result, so the whole thing is scaled to fit on screen.
+        val combinedRatio = when (direction) {
+            MergeDirection.Vertical -> (1.0 / ratios.sumOf { 1.0 / it }).toFloat()
+            MergeDirection.Horizontal -> ratios.sum()
+        }
+        BoxWithConstraints(
+            Modifier.fillMaxSize().padding(12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            val boxRatio = maxWidth.value / maxHeight.value
+            // Contain: fit by the tighter axis so no photo is clipped or scrolled off.
+            val fit = if (combinedRatio >= boxRatio) {
+                Modifier.fillMaxWidth().aspectRatio(combinedRatio)
+            } else {
+                Modifier.fillMaxHeight().aspectRatio(combinedRatio)
+            }.clip(RoundedCornerShape(6.dp))
             when (direction) {
-                MergeDirection.Vertical -> LazyColumn(
-                    modifier = Modifier.widthIn(max = 520.dp).fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    items(photos, key = { it.key }) { PreviewImage(it, Modifier.fillMaxWidth()) }
+                MergeDirection.Vertical -> Column(fit) {
+                    photos.forEachIndexed { index, photo ->
+                        PreviewSegment(photo, Modifier.fillMaxWidth().weight(1f / ratios[index]))
+                    }
                 }
-                MergeDirection.Horizontal -> LazyRow(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    items(photos, key = { it.key }) { PreviewImage(it, Modifier.fillMaxHeight()) }
+                MergeDirection.Horizontal -> Row(fit) {
+                    photos.forEachIndexed { index, photo ->
+                        PreviewSegment(photo, Modifier.fillMaxHeight().weight(ratios[index]))
+                    }
                 }
             }
         }
@@ -135,20 +148,12 @@ private fun StitchedPreview(
 }
 
 @Composable
-private fun PreviewImage(photo: GalleryPhoto, modifier: Modifier = Modifier) {
-    var measuredRatio by remember(photo.key) { mutableFloatStateOf(1f) }
-    val ratio = if (photo.width > 0 && photo.height > 0) photo.aspectRatio else measuredRatio
+private fun PreviewSegment(photo: GalleryPhoto, modifier: Modifier = Modifier) {
     AsyncImage(
         model = photo.uri,
         contentDescription = null,
         contentScale = ContentScale.FillBounds,
-        onSuccess = { state ->
-            val size = state.painter.intrinsicSize
-            if (size.height > 0f) measuredRatio = size.width / size.height
-        },
-        modifier = modifier
-            .aspectRatio(ratio)
-            .background(Hairline.copy(alpha = .35f)),
+        modifier = modifier.background(Hairline.copy(alpha = .35f)),
     )
 }
 
