@@ -10,7 +10,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
@@ -18,7 +20,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeLeft
 import androidx.lifecycle.ViewModelProvider
 import androidx.core.view.ViewCompat
@@ -29,6 +33,7 @@ import androidx.test.filters.LargeTest
 import androidx.test.rule.GrantPermissionRule
 import com.haroldadmin.imerge.gallery.GalleryPhoto
 import com.haroldadmin.imerge.merge.MergeDirection
+import com.haroldadmin.imerge.ui.GALLERY_GRID_TEST_TAG
 import com.haroldadmin.imerge.ui.galleryPhotoTestTag
 import com.haroldadmin.imerge.ui.photoViewerTestTag
 import org.junit.Assert.assertEquals
@@ -107,6 +112,42 @@ class MergeFlowTest {
         } finally {
             context.contentResolver.delete(first.uri, null, null)
             context.contentResolver.delete(second.uri, null, null)
+        }
+    }
+
+    @Test
+    fun toolbarOnlyReturnsWhenGalleryReachesTop() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val suffix = System.currentTimeMillis()
+        val photos = (0 until 30).map { index ->
+            createMediaStoreJpeg(
+                context = context,
+                name = "toolbar-test-$index-$suffix.jpg",
+                width = 80,
+                height = 80,
+                color = Color.rgb((index * 31) % 255, (index * 67) % 255, (index * 97) % 255),
+            )
+        }
+
+        try {
+            waitForGalleryToContain(photos.first(), photos.last())
+            val appName = string(R.string.app_name)
+            val grid = composeRule.onNodeWithTag(GALLERY_GRID_TEST_TAG)
+
+            composeRule.onNodeWithText(appName).assertIsDisplayed()
+            grid.performScrollToIndex(24)
+            composeRule.onNodeWithText(appName).assertIsNotDisplayed()
+
+            // Moving back toward the top must not reveal the bar until the list actually reaches it.
+            grid.performTouchInput {
+                swipe(center, center + Offset(0f, 120f), durationMillis = 200)
+            }
+            composeRule.onNodeWithText(appName).assertIsNotDisplayed()
+
+            grid.performScrollToIndex(0)
+            composeRule.onNodeWithText(appName).assertIsDisplayed()
+        } finally {
+            photos.forEach { context.contentResolver.delete(it.uri, null, null) }
         }
     }
 

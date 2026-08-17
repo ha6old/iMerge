@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -56,6 +57,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,7 +73,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
@@ -177,20 +178,20 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
         }
     }
 
-    val appBarScroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val galleryGridState = rememberLazyGridState()
+    val galleryAtTop by remember {
+        derivedStateOf { !galleryGridState.canScrollBackward }
+    }
     val appBarBackground = MaterialTheme.colorScheme.background
     val statusBarInsets = WindowInsets.statusBarsIgnoringVisibility
     val statusBarHeight = statusBarInsets.asPaddingValues().calculateTopPadding()
-    val resetAppBar = state.screen == Screen.Merge || state.selectionMode
-    LaunchedEffect(resetAppBar) {
-        appBarScroll.state.heightOffset = 0f
-    }
+    val appBarHeight = statusBarHeight + 56.dp
+    val showAppBar = state.screen == Screen.Merge || state.selectionMode || galleryAtTop
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(appBarScroll.nestedScrollConnection)
                 .then(
                     if (state.screen == Screen.PhotoViewer) Modifier.clearAndSetSemantics { }
                     else Modifier,
@@ -199,14 +200,16 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
             snackbarHost = { SnackbarHost(snackbarHost) },
             topBar = {
                 CenterAlignedTopAppBar(
-                    modifier = Modifier.drawBehind {
-                        val top = statusBarHeight.toPx()
-                        drawRect(
-                            color = appBarBackground,
-                            topLeft = Offset(0f, top),
-                            size = Size(size.width, (size.height - top).coerceAtLeast(0f)),
-                        )
-                    },
+                    modifier = Modifier
+                        .offset(y = if (showAppBar) 0.dp else -appBarHeight)
+                        .drawBehind {
+                            val top = statusBarHeight.toPx()
+                            drawRect(
+                                color = appBarBackground,
+                                topLeft = Offset(0f, top),
+                                size = Size(size.width, (size.height - top).coerceAtLeast(0f)),
+                            )
+                        },
                     windowInsets = statusBarInsets,
                     title = {
                         if (state.screen != Screen.Merge && state.selectionMode) {
@@ -215,7 +218,6 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
                             BrandTitle(onClick = checkUpdates)
                         }
                     },
-                    scrollBehavior = appBarScroll,
                     navigationIcon = {
                         when {
                             state.screen == Screen.Merge -> IconButton(onClick = viewModel::closeMerge) {
@@ -260,6 +262,7 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
                     galleryLoaded = state.galleryLoaded,
                     photos = state.gallery,
                     selected = state.selected,
+                    gridState = galleryGridState,
                     selectionMode = state.selectionMode,
                     onOpenPhoto = viewModel::openPhoto,
                     onToggleSelection = { photo ->

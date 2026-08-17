@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
@@ -52,6 +53,7 @@ fun GalleryScreen(
     galleryLoaded: Boolean,
     photos: List<GalleryPhoto>,
     selected: List<GalleryPhoto>,
+    gridState: LazyGridState,
     selectionMode: Boolean,
     onOpenPhoto: (GalleryPhoto) -> Unit,
     onToggleSelection: (GalleryPhoto) -> Unit,
@@ -92,6 +94,7 @@ fun GalleryScreen(
                 PhotoGrid(
                     photos = photos,
                     selected = selected,
+                    gridState = gridState,
                     selectionMode = selectionMode,
                     onOpenPhoto = onOpenPhoto,
                     onToggleSelection = onToggleSelection,
@@ -115,6 +118,7 @@ fun GalleryScreen(
 private fun PhotoGrid(
     photos: List<GalleryPhoto>,
     selected: List<GalleryPhoto>,
+    gridState: LazyGridState,
     selectionMode: Boolean,
     onOpenPhoto: (GalleryPhoto) -> Unit,
     onToggleSelection: (GalleryPhoto) -> Unit,
@@ -126,7 +130,10 @@ private fun PhotoGrid(
     }
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
-        modifier = modifier.padding(horizontal = 10.dp),
+        state = gridState,
+        modifier = modifier
+            .padding(horizontal = 10.dp)
+            .testTag(GALLERY_GRID_TEST_TAG),
         contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -226,6 +233,8 @@ private fun GalleryCell(
 internal fun galleryPhotoTestTag(key: String) = "gallery-photo-$key"
 
 internal fun gallerySelectionTestTag(key: String) = "gallery-selection-$key"
+
+internal const val GALLERY_GRID_TEST_TAG = "gallery-grid"
 
 @Composable
 private fun PartialAccessBanner(onRequestAccess: () -> Unit, modifier: Modifier = Modifier) {
