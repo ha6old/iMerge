@@ -12,6 +12,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -20,6 +21,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.lifecycle.ViewModelProvider
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
@@ -29,6 +32,7 @@ import com.haroldadmin.imerge.merge.MergeDirection
 import com.haroldadmin.imerge.ui.galleryPhotoTestTag
 import com.haroldadmin.imerge.ui.photoViewerTestTag
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -87,10 +91,19 @@ class MergeFlowTest {
             }
 
             composeRule.onNodeWithTag(galleryPhotoTestTag(start.key)).performClick()
+            waitForSystemBars(visible = false)
+            assertTrue(composeRule.onAllNodesWithText(string(R.string.app_name)).fetchSemanticsNodes().isEmpty())
             composeRule.onNodeWithTag(photoViewerTestTag(start.key)).assertIsDisplayed()
             composeRule.onNodeWithTag(photoViewerTestTag(start.key)).performTouchInput { swipeLeft() }
             composeRule.waitForIdle()
             composeRule.onNodeWithTag(photoViewerTestTag(next.key)).assertIsDisplayed()
+
+            composeRule.activityRule.scenario.onActivity { activity ->
+                activity.onBackPressedDispatcher.onBackPressed()
+            }
+            waitForSystemBars(visible = true)
+            composeRule.onNodeWithText(string(R.string.app_name)).assertIsDisplayed()
+            composeRule.onNodeWithTag(galleryPhotoTestTag(start.key)).assertIsDisplayed()
         } finally {
             context.contentResolver.delete(first.uri, null, null)
             context.contentResolver.delete(second.uri, null, null)
@@ -157,13 +170,26 @@ class MergeFlowTest {
     }
 
     private fun selectAndOpenMerge(first: GalleryPhoto, second: GalleryPhoto) {
-        composeRule.onNodeWithText(string(R.string.select_photos)).performClick()
-        composeRule.onNodeWithTag(galleryPhotoTestTag(first.key)).performClick()
+        composeRule.onNodeWithTag(galleryPhotoTestTag(first.key)).performTouchInput { longClick() }
         composeRule.onNodeWithTag(galleryPhotoTestTag(second.key)).performClick()
         composeRule
             .onNodeWithContentDescription(string(R.string.merge_selected_photos))
             .assertIsDisplayed()
             .performClick()
+    }
+
+    private fun waitForSystemBars(visible: Boolean) {
+        composeRule.waitUntil(5_000) {
+            var matches = false
+            composeRule.activityRule.scenario.onActivity { activity ->
+                val insets = ViewCompat.getRootWindowInsets(activity.window.decorView)
+                matches = insets?.let {
+                    it.isVisible(WindowInsetsCompat.Type.statusBars()) == visible &&
+                        it.isVisible(WindowInsetsCompat.Type.navigationBars()) == visible
+                } == true
+            }
+            matches
+        }
     }
 
     private fun waitForNewImage(context: Context, previousId: Long): MergedImage {

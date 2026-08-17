@@ -24,13 +24,17 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,20 +65,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -103,7 +114,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -114,6 +125,7 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
     val checkUpdates = AutoUpdateEffect { message ->
         scope.launch { snackbarHost.showSnackbar(message) }
     }
+    FullscreenSystemBarsEffect(hidden = state.screen == Screen.PhotoViewer)
 
     var access by remember { mutableStateOf(photoAccessOf(context)) }
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -166,82 +178,84 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
     }
 
     val appBarScroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    LaunchedEffect(state.screen) {
+    val appBarBackground = MaterialTheme.colorScheme.background
+    val statusBarInsets = WindowInsets.statusBarsIgnoringVisibility
+    val statusBarHeight = statusBarInsets.asPaddingValues().calculateTopPadding()
+    val resetAppBar = state.screen == Screen.Merge || state.selectionMode
+    LaunchedEffect(resetAppBar) {
         appBarScroll.state.heightOffset = 0f
     }
 
-    Scaffold(
-        modifier = Modifier.nestedScroll(appBarScroll.nestedScrollConnection),
-        containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbarHost) },
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    if (state.screen == Screen.Gallery && state.selectionMode) {
-                        Text(stringResource(R.string.gallery_selection_count, state.selected.size))
-                    } else {
-                        BrandTitle(onClick = checkUpdates)
-                    }
-                },
-                scrollBehavior = appBarScroll,
-                navigationIcon = {
-                    when {
-                        state.screen == Screen.PhotoViewer -> IconButton(onClick = viewModel::closePhoto) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.back),
-                            )
-                        }
-                        state.screen == Screen.Merge -> IconButton(onClick = viewModel::closeMerge) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.back),
-                            )
-                        }
-                        state.screen == Screen.Gallery && state.selectionMode -> IconButton(
-                            onClick = viewModel::cancelSelection,
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.cancel_selection),
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    if (state.screen == Screen.Gallery) {
-                        if (state.selectionMode) {
-                            if (state.selected.size >= MergeViewModel.MIN_PHOTOS) {
-                                IconButton(onClick = viewModel::openMerge) {
-                                    MergeActionIcon()
-                                }
-                            }
-                        } else {
-                            TextButton(onClick = viewModel::enterSelectionMode) {
-                                Text(stringResource(R.string.select_photos), color = Accent)
-                            }
-                        }
-                    }
-                },
-                expandedHeight = 56.dp,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
-                ),
-            )
-        },
-    ) { scaffoldPadding ->
-        Column(
+    Box(Modifier.fillMaxSize()) {
+        Scaffold(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(scaffoldPadding)
-                // The gallery draws its own full-bleed photo wall; only the merge page is inset here.
-                .padding(horizontal = if (state.screen == Screen.Merge) 20.dp else 0.dp),
-        ) {
+                .nestedScroll(appBarScroll.nestedScrollConnection)
+                .then(
+                    if (state.screen == Screen.PhotoViewer) Modifier.clearAndSetSemantics { }
+                    else Modifier,
+                ),
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(snackbarHost) },
+            topBar = {
+                CenterAlignedTopAppBar(
+                    modifier = Modifier.drawBehind {
+                        val top = statusBarHeight.toPx()
+                        drawRect(
+                            color = appBarBackground,
+                            topLeft = Offset(0f, top),
+                            size = Size(size.width, (size.height - top).coerceAtLeast(0f)),
+                        )
+                    },
+                    windowInsets = statusBarInsets,
+                    title = {
+                        if (state.screen != Screen.Merge && state.selectionMode) {
+                            Text(stringResource(R.string.gallery_selection_count, state.selected.size))
+                        } else {
+                            BrandTitle(onClick = checkUpdates)
+                        }
+                    },
+                    scrollBehavior = appBarScroll,
+                    navigationIcon = {
+                        when {
+                            state.screen == Screen.Merge -> IconButton(onClick = viewModel::closeMerge) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(R.string.back),
+                                )
+                            }
+                            state.screen != Screen.Merge && state.selectionMode -> IconButton(
+                                onClick = viewModel::cancelSelection,
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(R.string.cancel_selection),
+                                )
+                            }
+                        }
+                    },
+                    actions = {
+                        if (state.screen != Screen.Merge &&
+                            state.selectionMode &&
+                            state.selected.size >= MergeViewModel.MIN_PHOTOS
+                        ) {
+                            IconButton(onClick = viewModel::openMerge) {
+                                MergeActionIcon()
+                            }
+                        }
+                    },
+                    expandedHeight = 56.dp,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    ),
+                )
+            },
+        ) { scaffoldPadding ->
             when (state.screen) {
-                Screen.Gallery -> GalleryScreen(
+                Screen.Gallery, Screen.PhotoViewer -> GalleryScreen(
                     access = access,
                     galleryLoaded = state.galleryLoaded,
                     photos = state.gallery,
@@ -259,25 +273,36 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
                     },
                     onRequestAccess = { permissionLauncher.launch(photoAccessPermissions()) },
                     onOpenSettings = { context.openAppSettings() },
-                    modifier = Modifier.weight(1f),
+                    contentPadding = scaffoldPadding,
+                    modifier = Modifier.fillMaxSize(),
                 )
-                Screen.PhotoViewer -> PhotoViewerScreen(
-                    photos = state.gallery,
-                    initialPhotoKey = state.viewedPhotoKey,
-                    modifier = Modifier.weight(1f),
-                )
-                Screen.Merge -> MergeScreen(
-                    photos = state.selected,
-                    direction = state.direction,
-                    exportState = state.exportState,
-                    onRemove = viewModel::removeSelected,
-                    onMove = viewModel::moveSelected,
-                    onDirection = viewModel::setDirection,
-                    onExport = viewModel::export,
-                    onAddMore = viewModel::closeMerge,
-                    modifier = Modifier.weight(1f),
-                )
+                Screen.Merge -> Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(scaffoldPadding)
+                        .padding(horizontal = 20.dp),
+                ) {
+                    MergeScreen(
+                        photos = state.selected,
+                        direction = state.direction,
+                        exportState = state.exportState,
+                        onRemove = viewModel::removeSelected,
+                        onMove = viewModel::moveSelected,
+                        onDirection = viewModel::setDirection,
+                        onExport = viewModel::export,
+                        onAddMore = viewModel::closeMerge,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
+        }
+
+        if (state.screen == Screen.PhotoViewer) {
+            PhotoViewerScreen(
+                photos = state.gallery,
+                initialPhotoKey = state.viewedPhotoKey,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 
@@ -290,6 +315,25 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
             },
             onDelete = { deleteFlow.request(export.sourceUris) },
         )
+    }
+}
+
+@Composable
+private fun FullscreenSystemBarsEffect(hidden: Boolean) {
+    val view = LocalView.current
+    DisposableEffect(view, hidden) {
+        val window = (view.context as? Activity)?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        if (hidden) {
+            controller?.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller?.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            if (hidden) controller?.show(WindowInsetsCompat.Type.systemBars())
+        }
     }
 }
 

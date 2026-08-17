@@ -57,6 +57,7 @@ fun GalleryScreen(
     onToggleSelection: (GalleryPhoto) -> Unit,
     onRequestAccess: () -> Unit,
     onOpenSettings: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -64,12 +65,18 @@ fun GalleryScreen(
             access == PhotoAccess.None -> PermissionState(
                 onRequestAccess = onRequestAccess,
                 onOpenSettings = onOpenSettings,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).padding(contentPadding),
             )
-            !galleryLoaded -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            !galleryLoaded -> Box(
+                Modifier.weight(1f).fillMaxWidth().padding(contentPadding),
+                contentAlignment = Alignment.Center,
+            ) {
                 CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp, color = Accent)
             }
-            photos.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            photos.isEmpty() -> Box(
+                Modifier.weight(1f).fillMaxWidth().padding(contentPadding),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(
                     stringResource(R.string.gallery_empty),
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f),
@@ -78,7 +85,7 @@ fun GalleryScreen(
             }
             else -> Column(Modifier.weight(1f)) {
                 if (access == PhotoAccess.Partial) {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(contentPadding.calculateTopPadding() + 8.dp))
                     PartialAccessBanner(onRequestAccess, Modifier.padding(horizontal = 10.dp))
                     Spacer(Modifier.height(8.dp))
                 }
@@ -88,6 +95,11 @@ fun GalleryScreen(
                     selectionMode = selectionMode,
                     onOpenPhoto = onOpenPhoto,
                     onToggleSelection = onToggleSelection,
+                    contentPadding = PaddingValues(
+                        top = if (access == PhotoAccess.Partial) 10.dp
+                        else contentPadding.calculateTopPadding() + 10.dp,
+                        bottom = contentPadding.calculateBottomPadding() + 10.dp,
+                    ),
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
@@ -106,6 +118,7 @@ private fun PhotoGrid(
     selectionMode: Boolean,
     onOpenPhoto: (GalleryPhoto) -> Unit,
     onToggleSelection: (GalleryPhoto) -> Unit,
+    contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
     val selectionIndex = remember(selected) {
@@ -113,8 +126,8 @@ private fun PhotoGrid(
     }
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
-        modifier = modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp),
-        contentPadding = PaddingValues(bottom = 10.dp),
+        modifier = modifier.padding(horizontal = 10.dp),
+        contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {

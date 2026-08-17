@@ -85,10 +85,6 @@ class MergeViewModel(application: Application) : AndroidViewModel(application) {
         return result
     }
 
-    fun enterSelectionMode() {
-        mutableState.update { it.copy(selectionMode = true) }
-    }
-
     fun cancelSelection() {
         mutableState.update {
             it.copy(
