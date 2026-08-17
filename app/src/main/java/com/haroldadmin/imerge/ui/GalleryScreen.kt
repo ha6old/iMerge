@@ -1,15 +1,11 @@
 package com.haroldadmin.imerge.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,7 +23,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -41,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -56,8 +52,9 @@ fun GalleryScreen(
     galleryLoaded: Boolean,
     photos: List<GalleryPhoto>,
     selected: List<GalleryPhoto>,
-    onToggle: (GalleryPhoto) -> Unit,
-    onMerge: () -> Unit,
+    selectionMode: Boolean,
+    onOpenPhoto: (GalleryPhoto) -> Unit,
+    onToggleSelection: (GalleryPhoto) -> Unit,
     onRequestAccess: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
@@ -88,30 +85,15 @@ fun GalleryScreen(
                 PhotoGrid(
                     photos = photos,
                     selected = selected,
-                    onToggle = onToggle,
+                    selectionMode = selectionMode,
+                    onOpenPhoto = onOpenPhoto,
+                    onToggleSelection = onToggleSelection,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
                         // Darker than the toolbar in both themes.
                         .background(if (isSystemInDarkTheme()) PhotoWallDark else PhotoWall),
                 )
-            }
-        }
-        AnimatedVisibility(
-            visible = selected.isNotEmpty(),
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically(),
-        ) {
-            Button(
-                onClick = onMerge,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp)
-                    .padding(top = 14.dp)
-                    .height(52.dp),
-                shape = RoundedCornerShape(18.dp),
-            ) {
-                Text(stringResource(R.string.merge_button_count, selected.size))
             }
         }
     }
@@ -121,7 +103,9 @@ fun GalleryScreen(
 private fun PhotoGrid(
     photos: List<GalleryPhoto>,
     selected: List<GalleryPhoto>,
-    onToggle: (GalleryPhoto) -> Unit,
+    selectionMode: Boolean,
+    onOpenPhoto: (GalleryPhoto) -> Unit,
+    onToggleSelection: (GalleryPhoto) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val selectionIndex = remember(selected) {
@@ -138,17 +122,22 @@ private fun PhotoGrid(
             GalleryCell(
                 photo = photo,
                 selectionIndex = selectionIndex[photo.key],
-                onToggle = { onToggle(photo) },
+                selectionMode = selectionMode,
+                onOpen = { onOpenPhoto(photo) },
+                onToggleSelection = { onToggleSelection(photo) },
             )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun GalleryCell(
     photo: GalleryPhoto,
     selectionIndex: Int?,
-    onToggle: () -> Unit,
+    selectionMode: Boolean,
+    onOpen: () -> Unit,
+    onToggleSelection: () -> Unit,
 ) {
     val shape = RoundedCornerShape(10.dp)
     val description = if (selectionIndex != null) {
@@ -164,7 +153,12 @@ private fun GalleryCell(
             .then(
                 if (selectionIndex != null) Modifier.border(2.dp, Accent, shape) else Modifier,
             )
-            .clickable(onClick = onToggle),
+            .testTag(galleryPhotoTestTag(photo.key))
+            .combinedClickable(
+                onClick = if (selectionMode) onToggleSelection else onOpen,
+                onLongClick = onToggleSelection,
+                onLongClickLabel = stringResource(R.string.gallery_select_photo),
+            ),
     ) {
         AsyncImage(
             model = photo.uri,
@@ -172,7 +166,32 @@ private fun GalleryCell(
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
-        if (selectionIndex != null) {
+        if (selectionMode) {
+            if (selectionIndex != null) {
+                Box(Modifier.fillMaxSize().background(Ink.copy(alpha = .18f)))
+            }
+            Surface(
+                onClick = onToggleSelection,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(26.dp)
+                    .testTag(gallerySelectionTestTag(photo.key)),
+                shape = CircleShape,
+                color = if (selectionIndex != null) Accent else Ink.copy(alpha = .52f),
+                border = if (selectionIndex == null) BorderStroke(1.dp, Color.White.copy(alpha = .82f)) else null,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (selectionIndex != null) {
+                        Text(
+                            "${selectionIndex + 1}",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+            }
+        } else if (selectionIndex != null) {
             Box(Modifier.fillMaxSize().background(Ink.copy(alpha = .18f)))
             Surface(
                 modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(24.dp),
@@ -190,6 +209,10 @@ private fun GalleryCell(
         }
     }
 }
+
+internal fun galleryPhotoTestTag(key: String) = "gallery-photo-$key"
+
+internal fun gallerySelectionTestTag(key: String) = "gallery-selection-$key"
 
 @Composable
 private fun PartialAccessBanner(onRequestAccess: () -> Unit, modifier: Modifier = Modifier) {

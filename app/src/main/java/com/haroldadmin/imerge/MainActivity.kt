@@ -20,6 +20,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,10 +61,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -78,6 +85,7 @@ import com.haroldadmin.imerge.ui.GalleryScreen
 import com.haroldadmin.imerge.ui.IMergeTheme
 import com.haroldadmin.imerge.ui.MergeScreen
 import com.haroldadmin.imerge.ui.PhotoAccess
+import com.haroldadmin.imerge.ui.PhotoViewerScreen
 import com.haroldadmin.imerge.update.AutoUpdateEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -149,8 +157,12 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
         }
     }
 
-    BackHandler(enabled = state.screen == Screen.Merge) {
-        viewModel.closeMerge()
+    BackHandler(enabled = state.screen != Screen.Gallery || state.selectionMode) {
+        when (state.screen) {
+            Screen.Gallery -> viewModel.cancelSelection()
+            Screen.PhotoViewer -> viewModel.closePhoto()
+            Screen.Merge -> viewModel.closeMerge()
+        }
     }
 
     val appBarScroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -164,20 +176,55 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
         snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             CenterAlignedTopAppBar(
-                title = { BrandTitle(onClick = checkUpdates) },
+                title = {
+                    if (state.screen == Screen.Gallery && state.selectionMode) {
+                        Text(stringResource(R.string.gallery_selection_count, state.selected.size))
+                    } else {
+                        BrandTitle(onClick = checkUpdates)
+                    }
+                },
                 scrollBehavior = appBarScroll,
                 navigationIcon = {
-                    if (state.screen == Screen.Merge) {
-                        IconButton(onClick = viewModel::closeMerge) {
+                    when {
+                        state.screen == Screen.PhotoViewer -> IconButton(onClick = viewModel::closePhoto) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource(R.string.back),
                             )
                         }
+                        state.screen == Screen.Merge -> IconButton(onClick = viewModel::closeMerge) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.back),
+                            )
+                        }
+                        state.screen == Screen.Gallery && state.selectionMode -> IconButton(
+                            onClick = viewModel::cancelSelection,
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.cancel_selection),
+                            )
+                        }
+                    }
+                },
+                actions = {
+                    if (state.screen == Screen.Gallery) {
+                        if (state.selectionMode) {
+                            if (state.selected.size >= MergeViewModel.MIN_PHOTOS) {
+                                IconButton(onClick = viewModel::openMerge) {
+                                    MergeActionIcon()
+                                }
+                            }
+                        } else {
+                            TextButton(onClick = viewModel::enterSelectionMode) {
+                                Text(stringResource(R.string.select_photos), color = Accent)
+                            }
+                        }
                     }
                 },
                 expandedHeight = 56.dp,
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     scrolledContainerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
@@ -191,7 +238,7 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
                 .fillMaxSize()
                 .padding(scaffoldPadding)
                 // The gallery draws its own full-bleed photo wall; only the merge page is inset here.
-                .padding(horizontal = if (state.screen == Screen.Gallery) 0.dp else 20.dp),
+                .padding(horizontal = if (state.screen == Screen.Merge) 20.dp else 0.dp),
         ) {
             when (state.screen) {
                 Screen.Gallery -> GalleryScreen(
@@ -199,7 +246,9 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
                     galleryLoaded = state.galleryLoaded,
                     photos = state.gallery,
                     selected = state.selected,
-                    onToggle = { photo ->
+                    selectionMode = state.selectionMode,
+                    onOpenPhoto = viewModel::openPhoto,
+                    onToggleSelection = { photo ->
                         if (viewModel.toggleSelection(photo) == SelectionResult.LimitReached) {
                             scope.launch {
                                 snackbarHost.showSnackbar(
@@ -208,9 +257,13 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
                             }
                         }
                     },
-                    onMerge = viewModel::openMerge,
                     onRequestAccess = { permissionLauncher.launch(photoAccessPermissions()) },
                     onOpenSettings = { context.openAppSettings() },
+                    modifier = Modifier.weight(1f),
+                )
+                Screen.PhotoViewer -> PhotoViewerScreen(
+                    photos = state.gallery,
+                    initialPhotoKey = state.viewedPhotoKey,
                     modifier = Modifier.weight(1f),
                 )
                 Screen.Merge -> MergeScreen(
@@ -236,6 +289,55 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
                 scope.launch { snackbarHost.showSnackbar(resources.getString(R.string.originals_kept)) }
             },
             onDelete = { deleteFlow.request(export.sourceUris) },
+        )
+    }
+}
+
+@Composable
+private fun MergeActionIcon() {
+    val description = stringResource(R.string.merge_selected_photos)
+    val color = MaterialTheme.colorScheme.onBackground
+    Canvas(
+        modifier = Modifier
+            .size(24.dp)
+            .semantics { contentDescription = description },
+    ) {
+        val stroke = Stroke(width = 1.8.dp.toPx())
+        val radius = 2.dp.toPx()
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(1.dp.toPx(), 3.dp.toPx()),
+            size = Size(8.dp.toPx(), 7.dp.toPx()),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius),
+            style = stroke,
+        )
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(1.dp.toPx(), 14.dp.toPx()),
+            size = Size(8.dp.toPx(), 7.dp.toPx()),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius),
+            style = stroke,
+        )
+        drawLine(
+            color = color,
+            start = Offset(10.dp.toPx(), 6.5.dp.toPx()),
+            end = Offset(15.dp.toPx(), 12.dp.toPx()),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(10.dp.toPx(), 17.5.dp.toPx()),
+            end = Offset(15.dp.toPx(), 12.dp.toPx()),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(15.dp.toPx(), 8.dp.toPx()),
+            size = Size(8.dp.toPx(), 8.dp.toPx()),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius),
+            style = stroke,
         )
     }
 }

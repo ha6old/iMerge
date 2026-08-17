@@ -13,8 +13,12 @@ import android.provider.MediaStore
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -22,6 +26,8 @@ import androidx.test.filters.LargeTest
 import androidx.test.rule.GrantPermissionRule
 import com.haroldadmin.imerge.gallery.GalleryPhoto
 import com.haroldadmin.imerge.merge.MergeDirection
+import com.haroldadmin.imerge.ui.galleryPhotoTestTag
+import com.haroldadmin.imerge.ui.photoViewerTestTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -57,6 +63,38 @@ class MergeFlowTest {
             expectedWidth = 2400,
             expectedHeight = 1200,
         )
+    }
+
+    @Test
+    fun photoBrowserOpensAndSwipesBetweenPhotos() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val suffix = System.currentTimeMillis()
+        val first = createMediaStoreJpeg(context, "browser-test-first-$suffix.jpg", 700, 900, Color.BLUE)
+        val second = createMediaStoreJpeg(context, "browser-test-second-$suffix.jpg", 900, 700, Color.GREEN)
+
+        try {
+            waitForGalleryToContain(first, second)
+
+            lateinit var start: GalleryPhoto
+            lateinit var next: GalleryPhoto
+            composeRule.activityRule.scenario.onActivity { activity ->
+                val gallery = ViewModelProvider(activity)[MergeViewModel::class.java].state.value.gallery
+                val firstIndex = gallery.indexOfFirst { it.key == first.key }
+                val secondIndex = gallery.indexOfFirst { it.key == second.key }
+                val startIndex = minOf(firstIndex, secondIndex)
+                start = gallery[startIndex]
+                next = gallery[startIndex + 1]
+            }
+
+            composeRule.onNodeWithTag(galleryPhotoTestTag(start.key)).performClick()
+            composeRule.onNodeWithTag(photoViewerTestTag(start.key)).assertIsDisplayed()
+            composeRule.onNodeWithTag(photoViewerTestTag(start.key)).performTouchInput { swipeLeft() }
+            composeRule.waitForIdle()
+            composeRule.onNodeWithTag(photoViewerTestTag(next.key)).assertIsDisplayed()
+        } finally {
+            context.contentResolver.delete(first.uri, null, null)
+            context.contentResolver.delete(second.uri, null, null)
+        }
     }
 
     private fun twoPhotosPreviewAndExport(
@@ -119,12 +157,13 @@ class MergeFlowTest {
     }
 
     private fun selectAndOpenMerge(first: GalleryPhoto, second: GalleryPhoto) {
-        composeRule.activityRule.scenario.onActivity { activity ->
-            val viewModel = ViewModelProvider(activity)[MergeViewModel::class.java]
-            viewModel.toggleSelection(first)
-            viewModel.toggleSelection(second)
-            viewModel.openMerge()
-        }
+        composeRule.onNodeWithText(string(R.string.select_photos)).performClick()
+        composeRule.onNodeWithTag(galleryPhotoTestTag(first.key)).performClick()
+        composeRule.onNodeWithTag(galleryPhotoTestTag(second.key)).performClick()
+        composeRule
+            .onNodeWithContentDescription(string(R.string.merge_selected_photos))
+            .assertIsDisplayed()
+            .performClick()
     }
 
     private fun waitForNewImage(context: Context, previousId: Long): MergedImage {

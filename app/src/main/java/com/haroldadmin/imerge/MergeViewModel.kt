@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class Screen { Gallery, Merge }
+enum class Screen { Gallery, PhotoViewer, Merge }
 
 enum class SelectionResult { Added, Removed, LimitReached }
 
@@ -33,7 +33,9 @@ data class MergeUiState(
     val gallery: List<GalleryPhoto> = emptyList(),
     val galleryLoaded: Boolean = false,
     val selected: List<GalleryPhoto> = emptyList(),
+    val selectionMode: Boolean = false,
     val screen: Screen = Screen.Gallery,
+    val viewedPhotoKey: String? = null,
     val direction: MergeDirection = MergeDirection.Vertical,
     val exportState: ExportState = ExportState.Idle,
 )
@@ -73,21 +75,60 @@ class MergeViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 else -> {
                     result = SelectionResult.Added
-                    current.copy(selected = current.selected + photo)
+                    current.copy(
+                        selected = current.selected + photo,
+                        selectionMode = true,
+                    )
                 }
             }
         }
         return result
     }
 
+    fun enterSelectionMode() {
+        mutableState.update { it.copy(selectionMode = true) }
+    }
+
+    fun cancelSelection() {
+        mutableState.update {
+            it.copy(
+                selected = emptyList(),
+                selectionMode = false,
+            )
+        }
+    }
+
+    fun openPhoto(photo: GalleryPhoto) {
+        mutableState.update { current ->
+            if (current.selectionMode) current else current.copy(
+                screen = Screen.PhotoViewer,
+                viewedPhotoKey = photo.key,
+            )
+        }
+    }
+
+    fun closePhoto() {
+        mutableState.update {
+            it.copy(
+                screen = Screen.Gallery,
+                viewedPhotoKey = null,
+            )
+        }
+    }
+
     fun openMerge() {
         mutableState.update { current ->
-            if (current.selected.isNotEmpty()) current.copy(screen = Screen.Merge) else current
+            if (current.selected.size >= MIN_PHOTOS) current.copy(screen = Screen.Merge) else current
         }
     }
 
     fun closeMerge() {
-        mutableState.update { it.copy(screen = Screen.Gallery) }
+        mutableState.update {
+            it.copy(
+                screen = Screen.Gallery,
+                selectionMode = true,
+            )
+        }
     }
 
     fun removeSelected(key: String) {
@@ -145,13 +186,23 @@ class MergeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun retainSourcePhotos() {
         mutableState.update {
-            it.copy(exportState = ExportState.Idle, selected = emptyList(), screen = Screen.Gallery)
+            it.copy(
+                exportState = ExportState.Idle,
+                selected = emptyList(),
+                selectionMode = false,
+                screen = Screen.Gallery,
+            )
         }
     }
 
     fun sourcePhotosDeleted(deletedUris: Collection<Uri>) {
         mutableState.update {
-            it.copy(exportState = ExportState.Idle, selected = emptyList(), screen = Screen.Gallery)
+            it.copy(
+                exportState = ExportState.Idle,
+                selected = emptyList(),
+                selectionMode = false,
+                screen = Screen.Gallery,
+            )
         }
         refreshGallery()
     }
@@ -170,11 +221,17 @@ class MergeViewModel(application: Application) : AndroidViewModel(application) {
                 val selected = current.selected.filter {
                     it.uri.authority != MediaStore.AUTHORITY || it.key in available
                 }
+                val viewedPhotoAvailable = current.viewedPhotoKey in available
                 current.copy(
                     gallery = photos,
                     galleryLoaded = true,
                     selected = selected,
-                    screen = if (current.screen == Screen.Merge && selected.isEmpty()) Screen.Gallery else current.screen,
+                    screen = when {
+                        current.screen == Screen.Merge && selected.isEmpty() -> Screen.Gallery
+                        current.screen == Screen.PhotoViewer && !viewedPhotoAvailable -> Screen.Gallery
+                        else -> current.screen
+                    },
+                    viewedPhotoKey = current.viewedPhotoKey.takeIf { viewedPhotoAvailable },
                 )
             }
         }
@@ -201,6 +258,7 @@ class MergeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
+        const val MIN_PHOTOS = 2
         const val MAX_PHOTOS = 30
     }
 }
