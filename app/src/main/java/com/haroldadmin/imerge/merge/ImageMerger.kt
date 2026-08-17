@@ -92,9 +92,11 @@ class ImageMerger(private val resolver: ContentResolver) {
 
     private fun readSize(uri: Uri): ImageSize {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        resolver.openInputStream(uri)?.use { stream ->
-            BitmapFactory.decodeStream(stream, null, options)
-        } ?: throw IOException("无法读取照片: $uri")
+        val stream = resolver.openInputStream(uri)
+            ?: throw IOException("无法读取照片: $uri")
+        stream.use { input ->
+            BitmapFactory.decodeStream(input, null, options)
+        }
         val w = options.outWidth
         val h = options.outHeight
         if (w <= 0 || h <= 0) throw IOException("无法读取照片尺寸: $uri")

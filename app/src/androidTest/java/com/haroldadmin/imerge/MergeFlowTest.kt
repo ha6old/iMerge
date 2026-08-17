@@ -1,12 +1,14 @@
 package com.haroldadmin.imerge
 
 import android.Manifest
+import android.content.ContentValues
 import android.content.ContentUris
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -19,11 +21,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.rule.GrantPermissionRule
 import com.haroldadmin.imerge.gallery.GalleryPhoto
+import com.haroldadmin.imerge.merge.MergeDirection
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
+import java.io.IOException
 
 @RunWith(AndroidJUnit4::class)
 @LargeTest
@@ -39,10 +42,32 @@ class MergeFlowTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun twoPhotosPreviewAndExportInBothDirections() {
+    fun twoPhotosPreviewAndExportVertically() {
+        twoPhotosPreviewAndExport(
+            direction = MergeDirection.Vertical,
+            expectedWidth = 1200,
+            expectedHeight = 3200,
+        )
+    }
+
+    @Test
+    fun twoPhotosPreviewAndExportHorizontally() {
+        twoPhotosPreviewAndExport(
+            direction = MergeDirection.Horizontal,
+            expectedWidth = 2400,
+            expectedHeight = 1200,
+        )
+    }
+
+    private fun twoPhotosPreviewAndExport(
+        direction: MergeDirection,
+        expectedWidth: Int,
+        expectedHeight: Int,
+    ) {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val first = createJpeg(context, "merge-test-first.jpg", 1200, 800, Color.rgb(231, 111, 81))
-        val second = createJpeg(context, "merge-test-second.jpg", 600, 1200, Color.rgb(42, 157, 143))
+        val suffix = System.currentTimeMillis()
+        val first = createMediaStoreJpeg(context, "merge-test-first-$suffix.jpg", 1200, 800, Color.rgb(231, 111, 81))
+        val second = createMediaStoreJpeg(context, "merge-test-second-$suffix.jpg", 600, 1200, Color.rgb(42, 157, 143))
         val createdOutputs = mutableListOf<Uri>()
         val saveLabel = string(R.string.save_to_gallery)
         val successTitle = string(R.string.merge_success_title)
@@ -50,51 +75,54 @@ class MergeFlowTest {
 
         try {
             val initialId = latestMergedImage(context)?.id ?: -1L
+            waitForGalleryToContain(first, second)
             selectAndOpenMerge(first, second)
 
             composeRule.waitUntil(10_000) {
                 composeRule.onAllNodesWithText(saveLabel).fetchSemanticsNodes().isNotEmpty()
+            }
+            if (direction == MergeDirection.Horizontal) {
+                composeRule.onNodeWithText(string(R.string.direction_horizontal)).performClick()
             }
             composeRule.onNodeWithText(saveLabel).assertIsDisplayed().performClick()
             composeRule.waitUntil(20_000) {
                 composeRule.onAllNodesWithText(successTitle).fetchSemanticsNodes().isNotEmpty()
             }
-            val vertical = waitForNewImage(context, initialId)
-            createdOutputs += vertical.uri
-            assertEquals(1200, vertical.width)
-            assertEquals(3200, vertical.height)
-
-            composeRule.onNodeWithText(keepLabel).performClick()
-
-            selectAndOpenMerge(first, second)
-            composeRule.waitUntil(10_000) {
-                composeRule.onAllNodesWithText(saveLabel).fetchSemanticsNodes().isNotEmpty()
-            }
-            composeRule.onNodeWithText(string(R.string.direction_horizontal)).performClick()
-            composeRule.onNodeWithText(saveLabel).performClick()
-            composeRule.waitUntil(20_000) {
-                composeRule.onAllNodesWithText(successTitle).fetchSemanticsNodes().isNotEmpty()
-            }
-            val horizontal = waitForNewImage(context, vertical.id)
-            createdOutputs += horizontal.uri
-            assertEquals(2400, horizontal.width)
-            assertEquals(1200, horizontal.height)
+            val output = waitForNewImage(context, initialId)
+            createdOutputs += output.uri
+            assertEquals(expectedWidth, output.width)
+            assertEquals(expectedHeight, output.height)
             composeRule.onNodeWithText(keepLabel).performClick()
         } finally {
             createdOutputs.forEach { context.contentResolver.delete(it, null, null) }
-            first.delete()
-            second.delete()
+            context.contentResolver.delete(first.uri, null, null)
+            context.contentResolver.delete(second.uri, null, null)
         }
     }
 
     private fun string(id: Int, vararg args: Any): String =
         composeRule.activity.getString(id, *args)
 
-    private fun selectAndOpenMerge(first: File, second: File) {
+    private fun waitForGalleryToContain(vararg photos: GalleryPhoto) {
+        composeRule.activityRule.scenario.onActivity { activity ->
+            ViewModelProvider(activity)[MergeViewModel::class.java].onPhotoAccessGranted()
+        }
+        composeRule.waitUntil(10_000) {
+            var loaded = false
+            composeRule.activityRule.scenario.onActivity { activity ->
+                val viewModel = ViewModelProvider(activity)[MergeViewModel::class.java]
+                val galleryKeys = viewModel.state.value.gallery.mapTo(mutableSetOf()) { it.key }
+                loaded = photos.all { it.key in galleryKeys }
+            }
+            loaded
+        }
+    }
+
+    private fun selectAndOpenMerge(first: GalleryPhoto, second: GalleryPhoto) {
         composeRule.activityRule.scenario.onActivity { activity ->
             val viewModel = ViewModelProvider(activity)[MergeViewModel::class.java]
-            viewModel.toggleSelection(GalleryPhoto(Uri.fromFile(first), 1200, 800))
-            viewModel.toggleSelection(GalleryPhoto(Uri.fromFile(second), 600, 1200))
+            viewModel.toggleSelection(first)
+            viewModel.toggleSelection(second)
             viewModel.openMerge()
         }
     }
@@ -134,22 +162,49 @@ class MergeFlowTest {
         return null
     }
 
-    private fun createJpeg(
+    private fun createMediaStoreJpeg(
         context: Context,
         name: String,
         width: Int,
         height: Int,
         color: Int,
-    ): File {
-        val file = File(context.cacheDir, name)
+    ): GalleryPhoto {
+        val resolver = context.contentResolver
+        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val uri = resolver.insert(
+            collection,
+            ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, name)
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/iMergeTest")
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            },
+        ) ?: throw IOException("Could not create test image in MediaStore")
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         try {
             bitmap.eraseColor(color)
-            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }
+            resolver.openOutputStream(uri)?.use { stream ->
+                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)) {
+                    throw IOException("Could not encode test image")
+                }
+            } ?: throw IOException("Could not open test image output stream")
+            resolver.update(
+                uri,
+                ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) },
+                null,
+                null,
+            )
+            val externalUri = ContentUris.withAppendedId(
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL),
+                ContentUris.parseId(uri),
+            )
+            return GalleryPhoto(externalUri, width, height)
+        } catch (error: Throwable) {
+            resolver.delete(uri, null, null)
+            throw error
         } finally {
             bitmap.recycle()
         }
-        return file
     }
 
     private data class MergedImage(
