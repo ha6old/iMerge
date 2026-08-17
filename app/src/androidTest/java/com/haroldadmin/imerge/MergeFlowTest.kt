@@ -31,11 +31,13 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.rule.GrantPermissionRule
+import coil3.memory.MemoryCache
 import com.haroldadmin.imerge.gallery.GalleryPhoto
 import com.haroldadmin.imerge.merge.MergeDirection
 import com.haroldadmin.imerge.ui.GALLERY_GRID_TEST_TAG
 import com.haroldadmin.imerge.ui.galleryPhotoTestTag
 import com.haroldadmin.imerge.ui.photoViewerTestTag
+import com.haroldadmin.imerge.ui.galleryThumbnailRequest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -149,6 +151,17 @@ class MergeFlowTest {
         } finally {
             photos.forEach { context.contentResolver.delete(it.uri, null, null) }
         }
+    }
+
+    @Test
+    fun galleryThumbnailUsesItsMemoryCacheEntryAsPlaceholder() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val photo = GalleryPhoto(Uri.parse("content://media/external/images/media/42"))
+
+        val request = galleryThumbnailRequest(context, photo)
+
+        assertEquals(photo.key, request.memoryCacheKey)
+        assertEquals(MemoryCache.Key(photo.key), request.placeholderMemoryCacheKey)
     }
 
     private fun twoPhotosPreviewAndExport(

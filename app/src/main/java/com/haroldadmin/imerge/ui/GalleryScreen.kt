@@ -1,5 +1,6 @@
 package com.haroldadmin.imerge.ui
 
+import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -36,12 +37,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import com.haroldadmin.imerge.R
 import com.haroldadmin.imerge.gallery.GalleryPhoto
 
@@ -160,6 +163,10 @@ private fun GalleryCell(
     onToggleSelection: () -> Unit,
 ) {
     val shape = RoundedCornerShape(10.dp)
+    val context = LocalContext.current
+    val thumbnailRequest = remember(context, photo.uri) {
+        galleryThumbnailRequest(context, photo)
+    }
     val description = if (selectionIndex != null) {
         stringResource(R.string.gallery_selected_position, selectionIndex + 1)
     } else {
@@ -181,7 +188,7 @@ private fun GalleryCell(
             ),
     ) {
         AsyncImage(
-            model = photo.uri,
+            model = thumbnailRequest,
             contentDescription = description,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
@@ -235,6 +242,13 @@ internal fun galleryPhotoTestTag(key: String) = "gallery-photo-$key"
 internal fun gallerySelectionTestTag(key: String) = "gallery-selection-$key"
 
 internal const val GALLERY_GRID_TEST_TAG = "gallery-grid"
+
+internal fun galleryThumbnailRequest(context: Context, photo: GalleryPhoto): ImageRequest =
+    ImageRequest.Builder(context)
+        .data(photo.uri)
+        .memoryCacheKey(photo.key)
+        .placeholderMemoryCacheKey(photo.key)
+        .build()
 
 @Composable
 private fun PartialAccessBanner(onRequestAccess: () -> Unit, modifier: Modifier = Modifier) {

@@ -36,7 +36,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -115,7 +117,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(
+    ExperimentalFoundationApi::class,
+    ExperimentalLayoutApi::class,
+    ExperimentalMaterial3Api::class,
+)
 @Composable
 private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -178,7 +184,12 @@ private fun IMergeApp(viewModel: MergeViewModel = viewModel()) {
         }
     }
 
-    val galleryGridState = rememberLazyGridState()
+    val galleryGridState = rememberLazyGridState(
+        cacheWindow = LazyLayoutCacheWindow(
+            aheadFraction = 2f,
+            behindFraction = 2f,
+        ),
+    )
     val galleryAtTop by remember {
         derivedStateOf { !galleryGridState.canScrollBackward }
     }
